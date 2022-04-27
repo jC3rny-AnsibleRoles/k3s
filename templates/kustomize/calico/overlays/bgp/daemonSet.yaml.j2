@@ -1,0 +1,17 @@
+---
+
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: calico-node
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+        - name: calico-node
+          env:
+            - name: CALICO_IPV4POOL_CIDR
+              value: "{{ (k3s_cluster_cidr != "") | ternary(k3s_cluster_cidr, '10.42.0.0/16') }}"
+            - name: IP_AUTODETECTION_METHOD
+              value: "interface={{ ansible_default_ipv4.interface }}"

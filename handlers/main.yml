@@ -1,0 +1,20 @@
+---
+# [ k3s - handlers ]
+
+- name: daemon-reload
+  systemd:
+    daemon_reload: yes
+
+- name: Reload firewalld service
+  systemd:
+    name: firewalld
+    enabled: yes
+    masked: no
+    state: reloaded
+
+- name: Restart k3s service
+  systemd:
+    name: "{{ k3s_system_name }}"
+    enabled: yes
+    masked: no
+    state: restarted

@@ -1,0 +1,75 @@
+[Unit]
+Description=Lightweight Kubernetes
+Documentation=https://k3s.io
+Wants=network-online.target
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=notify
+EnvironmentFile=-/etc/default/%N
+EnvironmentFile=-/etc/sysconfig/%N
+EnvironmentFile=-{{ k3s_install_systemd_dir }}/{{ k3s_system_name }}.service.env
+KillMode=process
+Delegate=yes
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
+LimitNOFILE=1048576
+LimitNPROC=infinity
+LimitCORE=infinity
+TasksMax=infinity
+TimeoutStartSec=0
+Restart=always
+RestartSec=5s
+ExecStartPre=/bin/sh -xc '! /usr/bin/systemctl is-enabled --quiet nm-cloud-setup.service'
+ExecStartPre=-/sbin/modprobe br_netfilter
+ExecStartPre=-/sbin/modprobe overlay
+ExecStart={{ k3s_install_bin_dir }}/k3s \
+{% if 'k3s_server' in group_names %}
+    server \
+{% if ansible_play_hosts.index(inventory_hostname) == 0 %}
+        '--cluster-init' \
+{% if k3s_advertise_address != "" %}
+        '--advertise-address' '{{ k3s_advertise_address }}' \
+{% endif %}
+{% for san in k3s_tls_san | select() %}
+        '--tls-san' '{{ san }}' \
+{% endfor %}
+{% else %}
+        '--server' 'https://{{ k3s_advertise_address }}:{{ k3s_advertise_port }}' \
+{% endif %}
+{% if k3s_cluster_cidr != "" %}
+        '--cluster-cidr' '{{ k3s_cluster_cidr }}' \
+{% endif %}
+{% if k3s_service_cidr != "" %}
+        '--service-cidr' '{{ k3s_service_cidr }}' \
+{% endif %}
+{% if k3s_cluster_dns != "" %}
+        '--cluster-dns' '{{ k3s_cluster_dns }}' \
+{% endif %}
+{% if k3s_cluster_domain != "" %}
+        '--cluster-domain' '{{ k3s_cluster_domain }}' \
+{% endif %}
+{% if k3s_cni_plugin == "flannel" %}
+        '--flannel-backend' '{{ k3s_cni_flannel_backend }}' \
+{% endif %}
+{% if k3s_cni_plugin == "calico" %}
+        '--flannel-backend' 'none' \
+        '--disable-network-policy' \
+{% endif %}
+{% for component in k3s_disabled_components %}
+        '--disable' '{{ component }}' \
+{% endfor %}
+{% else %}
+    agent \
+        '--server' 'https://{{ k3s_advertise_address }}:{{ k3s_advertise_port }}' \
+{% endif %}
+{% if k3s_data_dir != "" %}
+        '--data-dir' '{{ k3s_data_dir }}' \
+{% endif %}
+{% for key, value in k3s_additional_options.items() %}
+        '--{{ key }}' {{ (value != "" and value is not none) | ternary("'" + (value | string) + "' \\", "\\", "\\") }}
+{% endfor %}
+

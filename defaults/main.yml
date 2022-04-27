@@ -1,0 +1,148 @@
+---
+# [ k3s - defaults ]
+
+# Common
+ansible_facts_env_user: "{{ ansible_facts.env.SUDO_USER | default(ansible_facts.env.USER) }}"
+k3s_kubeconfig_local_path: "./tmp/{{ ansible_facts_env_user }}-{{ (k3s_cluster_domain != '') | ternary(k3s_cluster_domain, inventory_hostname) }}.conf"
+
+
+# Install
+k3s_install_channel: "stable"
+k3s_install_version: ""
+
+k3s_install_name: ""
+
+k3s_install_bin_dir: "/usr/local/bin"
+k3s_install_bin_dir_mode: "0755"
+
+k3s_install_systemd_dir: "/etc/systemd/system"
+
+k3s_system_component: "{{ ('k3s_server' in group_names) | ternary('k3s', 'k3s-agent') }}"
+k3s_system_name: "{{ k3s_install_name | length | ternary((k3s_system_component + '-' + k3s_install_name), k3s_system_component) }}"
+
+
+# Private Registry
+k3s_private_registry: {}
+  # mirrors:
+  #   docker.io:
+  #     endpoint:
+  #       - "https://mycustomreg.com:5000"
+  # 
+  # configs:
+  #   "mycustomreg:5000":
+  #     auth:
+  #       username: "{{ vault_k3s_private_registry__mycustomreg_5000__username }}"
+  #       password: "{{ vault_k3s_private_registry__mycustomreg_5000__password }}"
+  #     tls:
+  #       ca_file_content: "{{ vault_k3s_private_registry__mycustomreg_5000__ca }}"
+  #         # Defines the CA certificate content, file name will be generated automatically by the registry name (mycustomreg_5000__ca.crt).
+  #       cert_file_content: "{{ vault_k3s_private_registry__mycustomreg_5000__cert }}"
+  #         # The client certificate content, file name will be generated automatically by the registry name (mycustomreg_5000__cert.crt).
+  #       key_file_content: "{{ vault_k3s_private_registry__mycustomreg_5000__key }}"
+  #         # The client key content, file name will be generated automatically by the registry name (mycustomreg_5000__cert.key).
+  #       insecure_skip_verify: false
+  #         # Boolean that defines if TLS verification should be skipped for the registry
+
+
+# Environment
+k3s_env_variables: {}
+  # additional service env variables
+  # HTTP_PROXY: "http://example.local:8080"
+  # HTTPS_PROXY: "http://example.local:8080"
+  # NO_PROXY: "localhost,127.0.0.0/8,::1"
+
+
+# Database
+k3s_datastore_endpoint: ""
+
+# Cluster options
+k3s_token: ""
+
+# Listeners
+k3s_https_listen_port: 6443
+k3s_advertise_address: ""
+k3s_advertise_address_fqdn: ""
+k3s_advertise_port: "{{ k3s_https_listen_port }}"
+k3s_tls_san:
+  - "{{ k3s_advertise_address }}"
+  - "{{ k3s_advertise_address_fqdn }}"
+
+# Data
+k3s_data_dir: ""
+  # default value: "/var/lib/rancher/k3s"
+
+# Networking
+k3s_cluster_cidr: ""
+  # "10.42.0.0/16"
+k3s_service_cidr: ""
+  # "10.43.0.0/16"
+k3s_cluster_dns: ""
+k3s_cluster_domain: ""
+
+# Kubernetes Components
+k3s_disabled_components: []
+  # values: coredns, servicelb, traefik, local-storage, metrics-server
+
+# Additioinal options
+k3s_additional_options: {}
+  # debug:
+  # default-local-storage-path: "/storage/k3s"
+  # etcd-snapshot-schedule-cron: "* */5 * * *"
+  # etcd-snapshot-retention: 14
+  # etcd-snapshot-dir: "/srv/backup/etcd"
+  # write-kubeconfig: "/srv/k3s/kubeconfig.yaml"
+  # write-kubeconfig-mode: "0644"
+
+
+# VIP
+k3s_vip_provider: "keepalived"
+  # values: keepalived or kube-vip.
+k3s_kube_vip_image: ""
+  # alternate image: "docker.io/plndr/kube-vip"
+k3s_kube_vip_version: "latest"
+
+
+# CNI
+k3s_cni_plugin: "flannel"
+  # values: flannel, calico
+k3s_cni_flannel_backend: "vxlan"
+k3s_cni_flannel_firewall_rules:
+  - { protocol: udp, port_range: 8472, purpose: Flannel networking (VXLAN) }
+
+k3s_cni_calico_backend: "bird"
+  # values: bird, vxlan
+
+k3s_cni_calico_masquerade_enabled: yes
+k3s_cni_calico_masquerade_zone: "public"
+
+k3s_cni_calico_firewall_rules:
+  - { protocol: tcp, port_range: 179, purpose: Calico networking (BGP) }
+  # - { protocol: udp, port_range: 8472, purpose: Calico networking with VXLAN }
+
+k3s_kustomize_image: "k8s.gcr.io/kustomize/kustomize"
+k3s_kustomize_tag: ""
+
+
+# Labels and taints
+k3s_node_labels: []
+  # - { name: node-role.kubernetes.io/worker, value: "" }
+  # - { name: node-role.kubernetes.io/infra, value: "" }
+k3s_node_taints: []
+  # - { name: node-role.kubernetes.io/master, value: "true", effect: "NoSchedule" }
+  # - { name: node-role.kubernetes.io/infra, value: "true", effect: "NoSchedule" }
+
+
+# Firewall
+  # zone, permanent and state can be omitted
+  # - { zone: public, protocol: tcp, port_range: "{{ k3s_advertise_port }}", permanent: yes, state: enabled, purpose: Kubernetes API Server }
+  # - { zone: public, service: http, permanent: yes, state: enabled, purpose: http-in }
+  # - { zone: public, service: https, permanent: yes, state: enabled, purpose: http-in }
+k3s_firewall_additional_rules: []
+
+k3s_server_firewall_rules:
+  - { protocol: tcp, port_range: "{{ k3s_advertise_port }}", purpose: Kubernetes API Server }
+  - { protocol: tcp, port_range: "2379-2380", purpose: etcd server client API }
+  - { protocol: tcp, port_range: 10250, purpose: Kubelet metrics }
+
+k3s_agent_firewall_rules:
+  - { protocol: tcp, port_range: 10250, purpose: Kubelet metrics }

@@ -1,0 +1,141 @@
+---
+# [ k3s - tasks/k3s_cni.yml ]
+
+# Set required firewall rules (Flannel)
+- name: Set required firewall rules (Flannel)
+  firewalld:
+    zone: "{{ item.zone | default('public') }}"
+    port: "{{ item.port_range }}/{{ item.protocol }}"
+    permanent: "{{ item.permanent | default('yes') }}"
+    state: "{{ item.state | default('enabled') }}"
+  with_items: "{{ k3s_cni_flannel_firewall_rules }}"
+  notify: Reload firewalld service
+  when: k3s_cni_plugin == "flannel"
+
+
+# Set required firewall rules (Calico)
+- block:
+  - name: Set firewall masquerade
+    firewalld:
+      zone: "{{ k3s_cni_calico_masquerade_zone }}"
+      masquerade: '"{{ k3s_cni_calico_masquerade_enabled }}"'
+      permanent: yes
+      state: "{{ k3s_cni_calico_masquerade_enabled | bool | ternary('enabled','disabled') }}"
+    notify: Reload firewalld service
+
+  - name: Set required firewall rules (Calico)
+    firewalld:
+      zone: "{{ item.zone | default('public') }}"
+      port: "{{ item.port_range }}/{{ item.protocol }}"
+      permanent: "{{ item.permanent | default('yes') }}"
+      state: "{{ item.state | default('enabled') }}"
+    with_items: "{{ k3s_cni_calico_firewall_rules }}"
+    notify: Reload firewalld service
+  
+  when: k3s_cni_plugin == "calico"
+
+- meta: flush_handlers
+
+
+# Set the Kustomize layering subsystem
+- block:
+  - name: Set the Kustomize layering subsystem
+    uri:
+      url: https://k8s.gcr.io/v2/kustomize/kustomize/tags/list
+      method: GET
+      return_content: yes
+      status_code: 200
+    register: k3s_kustomize_tags
+    when: k3s_kustomize_tag == ""
+
+  - set_fact:
+      k3s_kustomize_tag: "{{ k3s_kustomize_tags.json.tags | last }}"
+    when: k3s_kustomize_tag == ""
+  
+  - shell: "ctr images pull {{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}"
+    changed_when: no
+  
+  - file:
+      path: "${HOME}/kustomize/calico/{{ item }}"
+      state: directory
+      recurse: yes
+    with_items:
+      - "base"
+      - "overlays/bgp"
+      - "overlays/vxlan"
+
+  when:
+    - "'k3s_server' in group_names"
+    - ansible_play_hosts[0] == inventory_hostname
+    - k3s_cni_plugin == "calico"
+
+
+# Install the Flannel CNI plugin
+
+
+# Install the Calico CNI plugin
+- block:
+  # Download the Calico manifest
+  - name: Download the Calico manifest
+    get_url:
+      url: "https://projectcalico.docs.tigera.io/manifests/calico.yaml"
+      dest: "${HOME}/kustomize/calico/base/calico.yaml"
+      validate_certs: no
+  
+  # Kustomize the Calico deployment (BGP)
+  - name: Kustomize the Calico deployment (BGP)
+    template:
+      src: "kustomize/calico/{{ item.src }}"
+      dest: "${HOME}/kustomize/calico/{{ item.dest }}"
+    with_items:
+      - { src: "base/kustomization.yaml.j2", dest: "base/kustomization.yaml" }
+      - { src: "overlays/bgp/daemonSet.yaml.j2", dest: "overlays/bgp/daemonSet.yaml" }
+      - { src: "overlays/bgp/kustomization.yaml.j2", dest: "overlays/bgp/kustomization.yaml" }
+    when: k3s_cni_calico_backend == "bird"
+
+  - shell: |
+      ctr run \
+        --rm \
+        --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
+        --mount type=bind,src="{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/manifests",dst=/manifests,options=rbind:rw \
+        "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
+        ./kustomize build /data/overlays/bgp -o /manifests/calico.yaml
+    changed_when: no
+    when: k3s_cni_calico_backend == "bird"
+
+  # Kustomize the Calico deployment (VXLAN)
+  - name: Kustomize the Calico deployment (VXLAN)
+    template:
+      src: "kustomize/calico/{{ item.src }}"
+      dest: "${HOME}/kustomize/calico/{{ item.dest }}"
+    with_items:
+      - { src: "base/kustomization.yaml.j2", dest: "base/kustomization.yaml" }
+      - { src: "overlays/vxlan/configMap.yaml.j2", dest: "overlays/vxlan/configMap.yaml" }
+      - { src: "overlays/vxlan/daemonSet.yaml.j2", dest: "overlays/vxlan/daemonSet.yaml" }
+      - { src: "overlays/vxlan/kustomization.yaml.j2", dest: "overlays/vxlan/kustomization.yaml" }
+    when: k3s_cni_calico_backend == "vxlan"
+  
+  - shell: |
+      ctr run \
+        --rm \
+        --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
+        --mount type=bind,src="{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/manifests",dst=/manifests,options=rbind:rw \
+        "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
+        ./kustomize build /data/overlays/vxlan -o /manifests/calico.yaml
+    changed_when: no
+    when: k3s_cni_calico_backend == "vxlan"
+
+  # Wait for the Calico kube-controllers pod
+  - name: Wait for the Calico kube-controllers pod
+    shell: kubectl get pod -A -l k8s-app=calico-kube-controllers -o jsonpath='{ .items[].status.containerStatuses[].ready }' 2> /dev/null
+    changed_when: no
+    failed_when: no
+    register: k3s_cni_calico_kube_controllers_pod_status
+    delay: 30
+    retries: 10
+    until: k3s_cni_calico_kube_controllers_pod_status.stdout == "true"
+
+  when:
+    - "'k3s_server' in group_names"
+    - ansible_play_hosts[0] == inventory_hostname
+    - k3s_cni_plugin == "calico"

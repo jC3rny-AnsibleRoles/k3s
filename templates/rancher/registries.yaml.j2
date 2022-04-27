@@ -1,0 +1,35 @@
+---
+
+mirrors:
+{% for key, value in k3s_private_registry.mirrors.items() %}
+  {{ key }}:
+    endpoint:
+{% for endpoint in value.endpoint %}
+      - "{{ endpoint }}"
+{% endfor %}
+{% endfor %}
+
+configs:
+{% for key, value in k3s_private_registry.configs.items() %}
+  "{{ key }}":
+{% if value.auth is defined %}
+    auth:
+      {{ value.auth | to_nice_yaml | indent(6) | trim }}
+{% endif %}
+    {% if value.tls is defined -%}
+    tls:
+{% if value.tls.ca_file_content is defined %}
+      ca_file: "{{ k3s_private_registry_tls.path }}/{{ key | regex_replace('-|\\.|:', '_') }}__ca.crt"
+{% endif %}
+{% if value.tls.cert_file_content is defined %}
+      cert_file: "{{ k3s_private_registry_tls.path }}/{{ key | regex_replace('-|\\.|:', '_') }}__cert.crt"
+{% endif %}
+{% if value.tls.key_file_content is defined %}
+      key_file: "{{ k3s_private_registry_tls.path }}/{{ key | regex_replace('-|\\.|:', '_') }}__cert.key"
+{% endif %}
+{% if value.tls.insecure_skip_verify is defined %}
+      insecure_skip_verify: {{ value.tls.insecure_skip_verify | lower }}
+{% endif %}
+    {% endif %}
+
+{% endfor %}

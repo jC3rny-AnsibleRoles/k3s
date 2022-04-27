@@ -1,0 +1,260 @@
+---
+# [ k3s - tasks ]
+
+# Stop all of the K3s containers and reset the containerd state
+- name: Stop all of the K3s containers and reset the containerd state
+  shell: "{{ k3s_install_bin_dir }}/k3s-killall.sh"
+  changed_when: no
+  tags: [ never, upgrade-k3s, stop-k3s, reset-k3s ]
+
+
+# Remove service files, binaries and data
+- name: Remove service files, binaries and data
+  file:
+    name: "{{ item }}"
+    state: absent
+  notify: "daemon-reload"
+  with_items:
+    - "{{ k3s_install_bin_dir }}/kubectl"
+    - "{{ k3s_install_bin_dir }}/crictl"
+    - "{{ k3s_install_bin_dir }}/ctr"
+    - "{{ k3s_install_bin_dir }}/k3s"
+    - "{{ k3s_install_systemd_dir }}/{{ k3s_system_name }}.service"
+    - "{{ k3s_install_systemd_dir }}/{{ k3s_system_name }}.service.env"
+    - "/etc/rancher/k3s"
+    - "/var/lib/kubelet"
+    - "{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}"
+  tags: [ never, reset-k3s ]
+
+- meta: flush_handlers
+
+
+# Set required firewall rules
+- name: Set required firewall rules
+  include_tasks:
+    file: "roles/{{ role_name }}/tasks/k3s_firewall.yml"
+    apply:
+      tags: always
+  tags: [ install-k3s, set-k3s_firewall ]
+
+
+# Finding release for channel
+- block:
+  - name: "Finding release for channel {{ k3s_install_channel }}"
+    uri:
+      url: https://update.k3s.io/v1-release/channels
+      method: GET
+      return_content: yes
+      status_code: 200
+      body_format: json
+    register: k3s_release_channels
+  
+  - set_fact:
+      k3s_install_version: "{{ (k3s_release_channels.json.data | selectattr('name', 'eq', k3s_install_channel))[0].latest }}"
+  
+  when: k3s_install_version == ""
+  tags: [ install-k3s, upgrade-k3s ]
+
+
+# Install/Upgrade K3S
+- block:
+  - name: "Using {{ k3s_install_version }} as release"
+    file:
+      path: "{{ k3s_install_bin_dir }}"
+      state: directory
+      owner: "root"
+      group: "root"
+      mode: "{{ k3s_install_bin_dir_mode }}"
+
+  # Download K3S binary
+  - name: Download K3S binary
+    get_url:
+      url: https://github.com/k3s-io/k3s/releases/download/{{ k3s_install_version }}/k3s
+      checksum: sha256:https://github.com/k3s-io/k3s/releases/download/{{ k3s_install_version }}/sha256sum-amd64.txt
+      dest: "{{ k3s_install_bin_dir }}/k3s"
+      owner: root
+      group: root
+      mode: 0755
+    notify: Restart k3s service
+    when: ansible_facts.architecture == "x86_64"
+  
+  # Create directory for db snapshots
+  - name: Create directory for db snapshots
+    file:
+      path: "{{ k3s_additional_options['etcd-snapshot-dir'] }}"
+      state: directory
+      recurse: yes
+      owner: "root"
+      group: "root"
+      mode: 0750
+    when: k3s_additional_options['etcd-snapshot-dir'] is defined
+  
+  tags: [ install-k3s, upgrade-k3s ]
+
+
+# Set K3S private registry
+- block:
+  - name: Set K3S private registry
+    file:
+      path: "/etc/rancher/k3s/tls"
+      state: directory
+      recurse: yes
+      owner: "root"
+      group: "root"
+      mode: 0755
+    register: k3s_private_registry_tls
+  
+  - template:
+      src: "rancher/registries.yaml.j2"
+      dest: "/etc/rancher/k3s/registries.yaml"
+      owner: "root"
+      group: "root"
+      mode: 0640
+  
+  - include_tasks:
+      file: "roles/{{ role_name }}/tasks/k3s_private_registry_tls.yml"
+      apply:
+        tags: always
+    with_items: "{{ k3s_private_registry['configs'] | dict2items | selectattr('value.tls', 'defined') }}"
+    loop_control:
+      loop_var: k3s_private_registry_config
+  
+  when:
+    - k3s_private_registry != {}
+    - "'k3s_server' in group_names"
+  tags: [ install-k3s, set-k3s_private_registry ]
+
+
+# Create symlinks
+- block:
+  - name: Create K3S symlinks
+    shell: " which {{ item }}"
+    register: k3s_symlinks
+    changed_when: no
+    failed_when: no
+    with_items: [ "kubectl", "crictl", "ctr" ]
+  
+  - file:
+      src: "{{ k3s_install_bin_dir }}/k3s"
+      dest: "{{ k3s_install_bin_dir }}/{{ item.item }}"
+      state: link
+    changed_when: no
+    no_log: yes
+    with_items: "{{ k3s_symlinks.results | selectattr('stdout', 'eq', '') }}"
+    
+  tags: [ install-k3s, create-k3s_symlinks ]
+
+
+# Get K3S token
+- name: Get K3S token
+  include_tasks:
+    file: "roles/{{ role_name }}/tasks/k3s_token.yml"
+    apply:
+      delegate_to: "{{ groups['k3s_server'][0] }}"
+      tags: always
+  when: hostvars[groups['k3s_server'][0]].inventory_hostname != inventory_hostname
+  tags: [ install-k3s, get-k3s_token ]
+
+
+# Apply K3S service templates
+- block:
+  - name: Apply K3S service template
+    template:
+      src: "systemd/k3s.service.j2"
+      dest: "{{ k3s_install_systemd_dir }}/{{ k3s_system_name }}.service"
+      owner: root
+      group: root
+      mode: 0644
+    notify:
+      - "daemon-reload"
+      - "Restart k3s service"
+  
+  - name: Apply K3S service ENV template
+    template:
+      src: "systemd/k3s.service.env.j2"
+      dest: "{{ k3s_install_systemd_dir }}/{{ k3s_system_name }}.service.env"
+      owner: root
+      group: root
+      mode: 0600
+    notify:
+      - "daemon-reload"
+      - "Restart k3s service"
+  
+  - meta: flush_handlers
+
+  tags: [ install-k3s, apply-k3s_templates, apply-k3s_service_template ]
+
+- meta: flush_handlers
+
+
+# Apply K3S scripts template
+- name: Apply K3S scripts template
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "root"
+    group: "root"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: "bin/k3s-killall.sh.j2", dest: "{{ k3s_install_bin_dir }}/k3s-killall.sh", mode: "{{ k3s_install_bin_dir_mode }}" }
+    - { src: "bin/k3s-uninstall.sh.j2", dest: "{{ k3s_install_bin_dir }}/k3s-uninstall.sh", mode: "{{ k3s_install_bin_dir_mode }}" }
+  tags: [ install-k3s, apply-k3s_templates, apply-k3s_script_template ]
+
+
+# Set K3S VIP manifest
+- name: Set K3S VIP manifest
+  include_tasks:
+    file: "roles/{{ role_name }}/tasks/k3s_vip.yml"
+    apply:
+      tags: always
+  when:
+    - k3s_advertise_address != ""
+    - "'k3s_server' in group_names"
+  tags: [ install-k3s, set-k3s_vip_manifest ]
+
+
+# Set CNI plugin
+- name: Set K3S CNI plugin
+  include_tasks:
+    file: "roles/{{ role_name }}/tasks/k3s_cni.yml"
+    apply:
+      tags: always
+  tags: [ install-k3s, install-k3s_cni_plugin ]
+
+
+# Set K3S node labels and taints
+- name: Set K3S node labels and taints
+  include_tasks:
+    file: "roles/{{ role_name }}/tasks/k3s_labels_and_taints.yml"
+  when: k3s_node_labels != [] or k3s_node_taints != []
+  tags: [ install-k3s, set-k3s_node_labels, remove-k3s_node_labels, set-k3s_node_taints, remove-k3s_node_taints ]
+
+
+# Copy kubeconfig to the home directory
+- name: Copy kubeconfig to the home directory
+  include_tasks:
+    file: "roles/{{ role_name }}/tasks/k3s_kubeconfig.yml"
+  when: "'k3s_server' in group_names"
+  tags: [ install-k3s, copy-k3s_kubeconfig, update-k3s_kubeconfig, fetch-k3s_kubeconfig ]
+
+
+# Notify handlers
+- name: Notify handler - daemon-reload
+  debug: msg="Notify handler"
+  notify: daemon-reload
+  changed_when: true
+  tags: [ never, notify-handler_daemon_reload, notify-handlers_role_k3s, notify-handlers_all  ]
+
+- name: Notify handler - Reload firewalld service
+  debug: msg="Notify handler"
+  notify: Reload firewalld service
+  changed_when: true
+  tags: [ never, notify-handler_reload_firewalld_service, notify-handlers_role_k3s, notify-handlers_all  ]
+
+- name: Notify handler - Restart k3s service
+  debug: msg="Notify handler"
+  notify: Restart k3s service
+  changed_when: true
+  tags: [ never, notify-handler_restart_k3s_service, notify-handlers_role_k3s, notify-handlers_all  ]
+
+- meta: flush_handlers

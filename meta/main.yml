@@ -1,0 +1,5 @@
+---
+# [ k3s - meta ]
+
+dependencies:
+  - role: cri_prereq
