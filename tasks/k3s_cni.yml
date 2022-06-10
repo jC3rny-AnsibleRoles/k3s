@@ -14,24 +14,14 @@
 
 
 # Set required firewall rules (Calico)
-- block:
-  - name: Set firewall masquerade
-    firewalld:
-      zone: "{{ k3s_cni_calico_masquerade_zone }}"
-      masquerade: '"{{ k3s_cni_calico_masquerade_enabled }}"'
-      permanent: yes
-      state: "{{ k3s_cni_calico_masquerade_enabled | bool | ternary('enabled','disabled') }}"
-    notify: Reload firewalld service
-
-  - name: Set required firewall rules (Calico)
-    firewalld:
-      zone: "{{ item.zone | default('public') }}"
-      port: "{{ item.port_range }}/{{ item.protocol }}"
-      permanent: "{{ item.permanent | default('yes') }}"
-      state: "{{ item.state | default('enabled') }}"
-    with_items: "{{ k3s_cni_calico_firewall_rules }}"
-    notify: Reload firewalld service
-  
+- name: Set required firewall rules (Calico)
+  firewalld:
+    zone: "{{ item.zone | default('public') }}"
+    port: "{{ item.port_range }}/{{ item.protocol }}"
+    permanent: "{{ item.permanent | default('yes') }}"
+    state: "{{ item.state | default('enabled') }}"
+  with_items: "{{ k3s_cni_calico_firewall_rules }}"
+  notify: Reload firewalld service
   when: k3s_cni_plugin == "calico"
 
 - meta: flush_handlers

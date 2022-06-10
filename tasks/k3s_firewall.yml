@@ -1,6 +1,18 @@
 ---
 # [ k3s - tasks/k3s_firewall.yml ]
 
+# Set firewall masquerade
+- name: Set firewall masquerade
+  firewalld:
+    zone: "{{ k3s_firewall_masquerade_zone }}"
+    masquerade: '"{{ k3s_firewall_masquerade_enabled }}"'
+    permanent: yes
+    state: "{{ k3s_firewall_masquerade_enabled | bool | ternary('enabled','disabled') }}"
+  notify: Reload firewalld service
+
+- meta: flush_handlers
+
+
 # K3S server firewall rules
 - name: K3S server firewall rules
   firewalld:

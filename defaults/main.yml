@@ -105,16 +105,13 @@ k3s_kube_vip_version: "latest"
 # CNI
 k3s_cni_plugin: "flannel"
   # values: flannel, calico
+
 k3s_cni_flannel_backend: "vxlan"
 k3s_cni_flannel_firewall_rules:
   - { protocol: udp, port_range: 8472, purpose: Flannel networking (VXLAN) }
 
 k3s_cni_calico_backend: "bird"
   # values: bird, vxlan
-
-k3s_cni_calico_masquerade_enabled: yes
-k3s_cni_calico_masquerade_zone: "public"
-
 k3s_cni_calico_firewall_rules:
   - { protocol: tcp, port_range: 179, purpose: Calico networking (BGP) }
   # - { protocol: udp, port_range: 8472, purpose: Calico networking with VXLAN }
@@ -137,6 +134,9 @@ k3s_node_taints: []
   # - { zone: public, protocol: tcp, port_range: "{{ k3s_advertise_port }}", permanent: yes, state: enabled, purpose: Kubernetes API Server }
   # - { zone: public, service: http, permanent: yes, state: enabled, purpose: http-in }
   # - { zone: public, service: https, permanent: yes, state: enabled, purpose: http-in }
+k3s_firewall_masquerade_enabled: yes
+k3s_firewall_masquerade_zone: "public"
+
 k3s_firewall_additional_rules: []
 
 k3s_server_firewall_rules:
