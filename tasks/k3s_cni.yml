@@ -1,32 +1,6 @@
 ---
 # [ k3s - tasks/k3s_cni.yml ]
 
-# Set required firewall rules (Flannel)
-- name: Set required firewall rules (Flannel)
-  firewalld:
-    zone: "{{ item.zone | default('public') }}"
-    port: "{{ item.port_range }}/{{ item.protocol }}"
-    permanent: "{{ item.permanent | default('yes') }}"
-    state: "{{ item.state | default('enabled') }}"
-  with_items: "{{ k3s_cni_flannel_firewall_rules }}"
-  notify: Reload firewalld service
-  when: k3s_cni_plugin == "flannel"
-
-
-# Set required firewall rules (Calico)
-- name: Set required firewall rules (Calico)
-  firewalld:
-    zone: "{{ item.zone | default('public') }}"
-    port: "{{ item.port_range }}/{{ item.protocol }}"
-    permanent: "{{ item.permanent | default('yes') }}"
-    state: "{{ item.state | default('enabled') }}"
-  with_items: "{{ k3s_cni_calico_firewall_rules }}"
-  notify: Reload firewalld service
-  when: k3s_cni_plugin == "calico"
-
-- meta: flush_handlers
-
-
 # Set the Kustomize layering subsystem
 - block:
   - name: Set the Kustomize layering subsystem
@@ -68,7 +42,7 @@
   # Download the Calico manifest
   - name: Download the Calico manifest
     get_url:
-      url: "https://projectcalico.docs.tigera.io/manifests/calico.yaml"
+      url: "https://projectcalico.docs.tigera.io/{{ (k3s_cni_calico_version != '') | ternary(('archive/' + k3s_cni_calico_version + '/'), '') }}manifests/calico.yaml"
       dest: "${HOME}/kustomize/calico/base/calico.yaml"
       validate_certs: no
   

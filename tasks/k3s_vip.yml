@@ -38,7 +38,10 @@
 # Create k3s-vip manifest (keepalived)
 - block:
   - name: Create k3s-vip manifest (keepalived)
-    template:
+    stat: path="{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/manifests/k3s-vip-{{ inventory_hostname }}.yaml"
+    register: k3s_vip_static_pod_manifest_file
+  
+  - template:
       src: "manifests/keepalived.yaml.j2"
       dest: "{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/manifests/k3s-vip-{{ inventory_hostname }}.yaml"
       owner: "root"
@@ -50,5 +53,14 @@
     changed_when: no
     register: k3s_vip_auth_pass
     when: ansible_play_hosts[0] == inventory_hostname
+  
+  
+  - name: Reload k3s-vip static pod configuration
+    shell: kubectl -n kube-system delete pod k3s-vip-{{ inventory_hostname }}
+    changed_when: no
+    failed_when: no
+    when:
+      - k3s_vip_static_pod_manifest_file.stat.exists
+      - k3s_vip_static_pod_manifest.changed
 
   when: k3s_vip_provider == "keepalived"

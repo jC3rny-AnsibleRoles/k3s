@@ -29,15 +29,6 @@
 - meta: flush_handlers
 
 
-# Set required firewall rules
-- name: Set required firewall rules
-  include_tasks:
-    file: "roles/{{ role_name }}/tasks/k3s_firewall.yml"
-    apply:
-      tags: always
-  tags: [ install-k3s, set-k3s_firewall ]
-
-
 # Finding release for channel
 - block:
   - name: "Finding release for channel {{ k3s_install_channel }}"
@@ -244,12 +235,6 @@
   notify: daemon-reload
   changed_when: true
   tags: [ never, notify-handler_daemon_reload, notify-handlers_role_k3s, notify-handlers_all  ]
-
-- name: Notify handler - Reload firewalld service
-  debug: msg="Notify handler"
-  notify: Reload firewalld service
-  changed_when: true
-  tags: [ never, notify-handler_reload_firewalld_service, notify-handlers_role_k3s, notify-handlers_all  ]
 
 - name: Notify handler - Restart k3s service
   debug: msg="Notify handler"

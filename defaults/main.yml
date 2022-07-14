@@ -107,14 +107,10 @@ k3s_cni_plugin: "flannel"
   # values: flannel, calico
 
 k3s_cni_flannel_backend: "vxlan"
-k3s_cni_flannel_firewall_rules:
-  - { protocol: udp, port_range: 8472, purpose: Flannel networking (VXLAN) }
 
+k3s_cni_calico_version: ""
 k3s_cni_calico_backend: "bird"
   # values: bird, vxlan
-k3s_cni_calico_firewall_rules:
-  - { protocol: tcp, port_range: 179, purpose: Calico networking (BGP) }
-  # - { protocol: udp, port_range: 8472, purpose: Calico networking with VXLAN }
 
 k3s_kustomize_image: "k8s.gcr.io/kustomize/kustomize"
 k3s_kustomize_tag: ""
@@ -127,22 +123,3 @@ k3s_node_labels: []
 k3s_node_taints: []
   # - { name: node-role.kubernetes.io/master, value: "true", effect: "NoSchedule" }
   # - { name: node-role.kubernetes.io/infra, value: "true", effect: "NoSchedule" }
-
-
-# Firewall
-  # zone, permanent and state can be omitted
-  # - { zone: public, protocol: tcp, port_range: "{{ k3s_advertise_port }}", permanent: yes, state: enabled, purpose: Kubernetes API Server }
-  # - { zone: public, service: http, permanent: yes, state: enabled, purpose: http-in }
-  # - { zone: public, service: https, permanent: yes, state: enabled, purpose: http-in }
-k3s_firewall_masquerade_enabled: yes
-k3s_firewall_masquerade_zone: "public"
-
-k3s_firewall_additional_rules: []
-
-k3s_server_firewall_rules:
-  - { protocol: tcp, port_range: "{{ k3s_advertise_port }}", purpose: Kubernetes API Server }
-  - { protocol: tcp, port_range: "2379-2380", purpose: etcd server client API }
-  - { protocol: tcp, port_range: 10250, purpose: Kubelet metrics }
-
-k3s_agent_firewall_rules:
-  - { protocol: tcp, port_range: 10250, purpose: Kubelet metrics }
