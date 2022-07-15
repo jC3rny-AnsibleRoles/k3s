@@ -61,7 +61,7 @@
       ctr run \
         --rm \
         --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
-        --mount type=bind,src="{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/manifests",dst=/manifests,options=rbind:rw \
+        --mount type=bind,src="{{ k3s_data_dir }}/server/manifests",dst=/manifests,options=rbind:rw \
         "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
         ./kustomize build /data/overlays/bgp -o /manifests/calico.yaml
     changed_when: no
@@ -83,7 +83,7 @@
       ctr run \
         --rm \
         --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
-        --mount type=bind,src="{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/manifests",dst=/manifests,options=rbind:rw \
+        --mount type=bind,src="{{ k3s_data_dir }}/server/manifests",dst=/manifests,options=rbind:rw \
         "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
         ./kustomize build /data/overlays/vxlan -o /manifests/calico.yaml
     changed_when: no

@@ -2,11 +2,11 @@
 # [ k3s - tasks/k3s_token.yml ]
 
 - wait_for:
-    path: "{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/node-token"
+    path: "{{ k3s_data_dir }}/server/node-token"
   run_once: yes
 
 - slurp:
-    path: "{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}/server/node-token"
+    path: "{{ k3s_data_dir }}/server/node-token"
   register: k3s_server_node_token
   run_once: yes
 

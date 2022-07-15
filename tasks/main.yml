@@ -23,7 +23,7 @@
     - "{{ k3s_install_systemd_dir }}/{{ k3s_system_name }}.service.env"
     - "/etc/rancher/k3s"
     - "/var/lib/kubelet"
-    - "{{ (k3s_data_dir != '') | ternary(k3s_data_dir, '/var/lib/rancher/k3s') }}"
+    - "{{ k3s_data_dir }}"
   tags: [ never, reset-k3s ]
 
 - meta: flush_handlers
@@ -63,6 +63,7 @@
       url: https://github.com/k3s-io/k3s/releases/download/{{ k3s_install_version }}/k3s
       checksum: sha256:https://github.com/k3s-io/k3s/releases/download/{{ k3s_install_version }}/sha256sum-amd64.txt
       dest: "{{ k3s_install_bin_dir }}/k3s"
+      force: "{{ ('upgrade-k3s' in ansible_run_tags) | ternary('yes','no') }}"
       owner: root
       group: root
       mode: 0755

@@ -66,7 +66,7 @@ ExecStart={{ k3s_install_bin_dir }}/k3s \
     agent \
         '--server' 'https://{{ k3s_advertise_address }}:{{ k3s_advertise_port }}' \
 {% endif %}
-{% if k3s_data_dir != "" %}
+{% if k3s_data_dir != "/var/lib/rancher/k3s" %}
         '--data-dir' '{{ k3s_data_dir }}' \
 {% endif %}
 {% for key, value in k3s_additional_options.items() %}
