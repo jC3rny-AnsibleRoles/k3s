@@ -30,7 +30,7 @@
 
   when:
     - "'k3s_server' in group_names"
-    - ansible_play_hosts[0] == inventory_hostname
+    - ansible_play_hosts[0] == inventory_hostname_short
     - k3s_cni_plugin == "calico"
 
 
@@ -101,5 +101,5 @@
 
   when:
     - "'k3s_server' in group_names"
-    - ansible_play_hosts[0] == inventory_hostname
+    - ansible_play_hosts[0] == inventory_hostname_short
     - k3s_cni_plugin == "calico"

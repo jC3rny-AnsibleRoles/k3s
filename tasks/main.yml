@@ -144,7 +144,7 @@
     apply:
       delegate_to: "{{ groups['k3s_server'][0] }}"
       tags: always
-  when: hostvars[groups['k3s_server'][0]].inventory_hostname != inventory_hostname
+  when: hostvars[groups['k3s_server'][0]].inventory_hostname_short != inventory_hostname_short
   tags: [ install-k3s, get-k3s_token ]
 
 

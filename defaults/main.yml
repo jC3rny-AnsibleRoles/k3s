@@ -3,7 +3,7 @@
 
 # Common
 ansible_facts_env_user: "{{ ansible_facts.env.SUDO_USER | default(ansible_facts.env.USER) }}"
-k3s_kubeconfig_local_path: "./tmp/{{ ansible_facts_env_user }}-{{ (k3s_cluster_domain != '') | ternary(k3s_cluster_domain, inventory_hostname) }}.conf"
+k3s_kubeconfig_local_path: "./tmp/{{ ansible_facts_env_user }}-{{ (k3s_cluster_domain != '') | ternary(k3s_cluster_domain, inventory_hostname_short) }}.conf"
 
 
 # Install

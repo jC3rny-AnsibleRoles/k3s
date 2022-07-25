@@ -29,7 +29,7 @@ ExecStartPre=-/sbin/modprobe overlay
 ExecStart={{ k3s_install_bin_dir }}/k3s \
 {% if 'k3s_server' in group_names %}
     server \
-{% if ansible_play_hosts.index(inventory_hostname) == 0 %}
+{% if ansible_play_hosts.index(inventory_hostname_short) == 0 %}
         '--cluster-init' \
 {% if k3s_advertise_address != "" %}
         '--advertise-address' '{{ k3s_advertise_address }}' \
