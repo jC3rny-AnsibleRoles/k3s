@@ -38,12 +38,12 @@
 # Create k3s-vip manifest (keepalived)
 - block:
   - name: Create k3s-vip manifest (keepalived)
-    stat: path="{{ k3s_data_dir }}/server/manifests/k3s-vip-{{ inventory_hostname }}.yaml"
+    stat: path="{{ k3s_data_dir }}/server/manifests/k3s-vip-{{ inventory_hostname_short }}.yaml"
     register: k3s_vip_static_pod_manifest_file
   
   - template:
       src: "manifests/keepalived.yaml.j2"
-      dest: "{{ k3s_data_dir }}/server/manifests/k3s-vip-{{ inventory_hostname }}.yaml"
+      dest: "{{ k3s_data_dir }}/server/manifests/k3s-vip-{{ inventory_hostname_short }}.yaml"
       owner: "root"
       group: "root"
       mode: "0600"
@@ -56,7 +56,7 @@
   
   
   - name: Reload k3s-vip static pod configuration
-    shell: kubectl -n kube-system delete pod k3s-vip-{{ inventory_hostname }}
+    shell: kubectl -n kube-system delete pod k3s-vip-{{ inventory_hostname_short }}
     changed_when: no
     failed_when: no
     when:

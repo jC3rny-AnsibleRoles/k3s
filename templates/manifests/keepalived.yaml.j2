@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "k3s-vip-{{ inventory_hostname }}"
+  name: "k3s-vip-{{ inventory_hostname_short }}"
   namespace: kube-system
   labels:
     k8s-app: k3s-vip
@@ -11,7 +11,7 @@ metadata:
     timestamp: "{{lookup('pipe','date +%Y%m%d%H%M%S.%5N')}}"
 spec:
   hostNetwork: true
-  nodeName: {{ inventory_hostname }}
+  nodeName: {{ inventory_hostname_short }}
   containers:
     - name: keepalived
       image: osixia/keepalived:stable-amd64

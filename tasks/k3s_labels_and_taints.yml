@@ -2,7 +2,7 @@
 # [ k3s - tasks/k3s_labels_and_taints.yml ]
 
 - name: Set K3S node labels
-  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} label nodes {{ hostvars[inventory_hostname].ansible_fqdn }} {{ item.name }}={{ item.value }}"
+  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} label nodes {{ hostvars[inventory_hostname_short].ansible_fqdn }} {{ item.name }}={{ item.value }}"
   with_items: "{{ k3s_node_labels }}"
   changed_when: no
   failed_when: no
@@ -12,7 +12,7 @@
   tags: [ install-k3s, set-k3s_node_labels ]
 
 - name: Remove K3S node labels
-  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} label nodes {{ hostvars[inventory_hostname].ansible_fqdn }} {{ item.name }}-"
+  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} label nodes {{ hostvars[inventory_hostname_short].ansible_fqdn }} {{ item.name }}-"
   with_items: "{{ k3s_node_labels }}"
   changed_when: no
   failed_when: no
@@ -24,7 +24,7 @@
 
 # Set up kubernetes node taints
 - name: Set K3S node taints
-  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} taint nodes {{ hostvars[inventory_hostname].ansible_fqdn }} {{ item.name }}={{ item.value }}:{{ item.effect }}"
+  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} taint nodes {{ hostvars[inventory_hostname_short].ansible_fqdn }} {{ item.name }}={{ item.value }}:{{ item.effect }}"
   with_items: "{{ k3s_node_taints }}"
   changed_when: no
   failed_when: no
@@ -34,7 +34,7 @@
   tags: [ install-k3s, set-k3s_node_taints ]
 
 - name: Remove K3S node taints
-  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} taint nodes {{ hostvars[inventory_hostname].ansible_fqdn }} {{ item.name }}={{ item.value }}:{{ item.effect }}-"
+  shell: "kubectl --kubeconfig {{ k3s_kubeconfig_local_path }} taint nodes {{ hostvars[inventory_hostname_short].ansible_fqdn }} {{ item.name }}={{ item.value }}:{{ item.effect }}-"
   with_items: "{{ k3s_node_taints }}"
   changed_when: no
   failed_when: no
