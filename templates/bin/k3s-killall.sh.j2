@@ -24,7 +24,7 @@ pschildren() {
     cut -f2
 }
 
-pstree() {                                                                                                                                                                         [2/2687]
+pstree() {
     for pid in $@; do
         echo $pid
         for child in $(pschildren $pid); do
