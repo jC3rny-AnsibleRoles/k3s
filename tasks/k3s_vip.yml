@@ -41,6 +41,15 @@
     stat: path="{{ k3s_data_dir }}/server/manifests/k3s-vip-{{ inventory_hostname_short }}.yaml"
     register: k3s_vip_static_pod_manifest_file
   
+  - shell: "grep -A1 'KEEPALIVED_PASSWORD' {{ k3s_vip_static_pod_manifest_file.stat.path }} | grep -oP '(?<=\").*(?=\")'"
+    changed_when: no
+    register: k3s_vip_auth_pass
+    check_mode: no
+    when:
+      - ansible_play_hosts[0] == inventory_hostname
+      - k3s_vip_static_pod_manifest_file.stat.exists
+      - not (k3s_vip_reset_keepalived_password | bool)
+
   - template:
       src: "manifests/keepalived.yaml.j2"
       dest: "{{ k3s_data_dir }}/server/manifests/k3s-vip-{{ inventory_hostname_short }}.yaml"
@@ -52,6 +61,7 @@
   - shell: "grep -A1 'KEEPALIVED_PASSWORD' {{ k3s_vip_static_pod_manifest.dest }} | grep -oP '(?<=\").*(?=\")'"
     changed_when: no
     register: k3s_vip_auth_pass
+    check_mode: no
     when: ansible_play_hosts[0] == inventory_hostname
   
   

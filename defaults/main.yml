@@ -3,7 +3,7 @@
 
 # Common
 ansible_facts_env_user: "{{ ansible_facts.env.SUDO_USER | default(ansible_facts.env.USER) }}"
-k3s_kubeconfig_local_path: "./tmp/{{ ansible_facts_env_user }}-{{ (k3s_cluster_domain != '') | ternary(k3s_cluster_domain, inventory_hostname_short) }}.conf"
+k3s_kubeconfig_local_path: "./tmp/installer-{{ (k3s_cluster_domain != '') | ternary(k3s_cluster_domain, inventory_hostname_short) }}.conf"
 
 
 # Install
@@ -96,6 +96,11 @@ k3s_additional_options: {}
 # VIP
 k3s_vip_provider: "keepalived"
   # values: keepalived or kube-vip.
+
+k3s_vip_manifest_always_reload: no
+
+k3s_vip_reset_keepalived_password: no
+
 k3s_kube_vip_image: ""
   # alternate image: "docker.io/plndr/kube-vip"
 k3s_kube_vip_version: "latest"

@@ -1,6 +1,18 @@
 ---
 # [ k3s - tasks ]
 
+# Get K3S version
+- block:
+  - name: Get K3S version
+    shell: "{{ k3s_install_bin_dir }}/k3s --version"
+    register: k3s_version
+    changed_when: no
+
+  - debug: msg="{{ k3s_version.stdout_lines }}"
+
+  tags: [ never, get-k3s_version ]
+
+
 # Stop all of the K3s containers and reset the containerd state
 - name: Stop all of the K3s containers and reset the containerd state
   shell: "{{ k3s_install_bin_dir }}/k3s-killall.sh"

@@ -7,8 +7,10 @@ metadata:
   namespace: kube-system
   labels:
     k8s-app: k3s-vip
+{% if k3s_vip_manifest_always_reload %}
   annotations:
     timestamp: "{{lookup('pipe','date +%Y%m%d%H%M%S.%5N')}}"
+{% endif %}
 spec:
   hostNetwork: true
   nodeName: {{ inventory_hostname_short }}
