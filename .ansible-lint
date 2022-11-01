@@ -1,0 +1,17 @@
+---
+
+# This makes linter to fully ignore rules/tags listed below
+# skip_list:
+#   - name[missing]
+#   - yaml[brackets]
+
+# This makes the linter display but not fail for rules/tags listed below:
+warn_list:
+  - jinja[spacing]
+  - key-order[task]
+  - meta-no-info
+  - name[casing]
+  - name[missing]
+  - name[template]
+  - yaml[brackets]
+  - yaml[line-length]

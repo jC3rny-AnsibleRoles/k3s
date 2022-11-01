@@ -4,25 +4,25 @@
 # Set the Kustomize layering subsystem
 - block:
   - name: Set the Kustomize layering subsystem
-    uri:
+    ansible.builtin.uri:
       url: https://k8s.gcr.io/v2/kustomize/kustomize/tags/list
       method: GET
-      return_content: yes
+      return_content: true
       status_code: 200
     register: k3s_kustomize_tags
     when: k3s_kustomize_tag == ""
 
-  - set_fact:
+  - ansible.builtin.set_fact:
       k3s_kustomize_tag: "{{ k3s_kustomize_tags.json.tags | last }}"
     when: k3s_kustomize_tag == ""
-  
-  - shell: "ctr images pull {{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}"
-    changed_when: no
-  
-  - file:
+
+  - ansible.builtin.command: "ctr images pull {{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}"
+    changed_when: false
+
+  - ansible.builtin.file:
       path: "${HOME}/kustomize/calico/{{ item }}"
       state: directory
-      recurse: yes
+      recurse: true
     with_items:
       - "base"
       - "overlays/bgp"
@@ -39,65 +39,74 @@
 
 # Install the Calico CNI plugin
 - block:
-  # Download the Calico manifest
-  - name: Download the Calico manifest
-    get_url:
-      url: "https://projectcalico.docs.tigera.io/{{ (k3s_cni_calico_version != '') | ternary(('archive/' + k3s_cni_calico_version + '/'), '') }}manifests/calico.yaml"
-      dest: "${HOME}/kustomize/calico/base/calico.yaml"
-      validate_certs: no
-  
-  # Kustomize the Calico deployment (BGP)
-  - name: Kustomize the Calico deployment (BGP)
-    template:
-      src: "kustomize/calico/{{ item.src }}"
-      dest: "${HOME}/kustomize/calico/{{ item.dest }}"
-    with_items:
-      - { src: "base/kustomization.yaml.j2", dest: "base/kustomization.yaml" }
-      - { src: "overlays/bgp/daemonSet.yaml.j2", dest: "overlays/bgp/daemonSet.yaml" }
-      - { src: "overlays/bgp/kustomization.yaml.j2", dest: "overlays/bgp/kustomization.yaml" }
-    when: k3s_cni_calico_backend == "bird"
+    # Download the Calico manifest
+    - name: Download the Calico manifest
+      ansible.builtin.get_url:
+        url: "https://projectcalico.docs.tigera.io/{{ (k3s_cni_calico_version != '') | ternary(('archive/' + k3s_cni_calico_version + '/'), '') }}manifests/calico.yaml"
+        dest: "${HOME}/kustomize/calico/base/calico.yaml"
+        owner: root
+        group: root
+        mode: "0640"
+        validate_certs: false
 
-  - shell: |
-      ctr run \
-        --rm \
-        --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
-        --mount type=bind,src="{{ k3s_data_dir }}/server/manifests",dst=/manifests,options=rbind:rw \
-        "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
-        ./kustomize build /data/overlays/bgp -o /manifests/calico.yaml
-    changed_when: no
-    when: k3s_cni_calico_backend == "bird"
+    # Kustomize the Calico deployment (BGP)
+    - name: Kustomize the Calico deployment (BGP)
+      ansible.builtin.template:
+        src: "kustomize/calico/{{ item.src }}"
+        dest: "${HOME}/kustomize/calico/{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0640"
+      with_items:
+        - { src: "base/kustomization.yaml.j2", dest: "base/kustomization.yaml" }
+        - { src: "overlays/bgp/daemonSet.yaml.j2", dest: "overlays/bgp/daemonSet.yaml" }
+        - { src: "overlays/bgp/kustomization.yaml.j2", dest: "overlays/bgp/kustomization.yaml" }
+      when: k3s_cni_calico_backend == "bird"
 
-  # Kustomize the Calico deployment (VXLAN)
-  - name: Kustomize the Calico deployment (VXLAN)
-    template:
-      src: "kustomize/calico/{{ item.src }}"
-      dest: "${HOME}/kustomize/calico/{{ item.dest }}"
-    with_items:
-      - { src: "base/kustomization.yaml.j2", dest: "base/kustomization.yaml" }
-      - { src: "overlays/vxlan/configMap.yaml.j2", dest: "overlays/vxlan/configMap.yaml" }
-      - { src: "overlays/vxlan/daemonSet.yaml.j2", dest: "overlays/vxlan/daemonSet.yaml" }
-      - { src: "overlays/vxlan/kustomization.yaml.j2", dest: "overlays/vxlan/kustomization.yaml" }
-    when: k3s_cni_calico_backend == "vxlan"
-  
-  - shell: |
-      ctr run \
-        --rm \
-        --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
-        --mount type=bind,src="{{ k3s_data_dir }}/server/manifests",dst=/manifests,options=rbind:rw \
-        "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
-        ./kustomize build /data/overlays/vxlan -o /manifests/calico.yaml
-    changed_when: no
-    when: k3s_cni_calico_backend == "vxlan"
+    - ansible.builtin.shell: |
+        ctr run \
+          --rm \
+          --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
+          --mount type=bind,src="{{ k3s_data_dir }}/server/manifests",dst=/manifests,options=rbind:rw \
+          "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
+          ./kustomize build /data/overlays/bgp -o /manifests/calico.yaml
+      changed_when: false
+      when: k3s_cni_calico_backend == "bird"
 
-  # Wait for the Calico kube-controllers pod
-  - name: Wait for the Calico kube-controllers pod
-    shell: kubectl get pod -A -l k8s-app=calico-kube-controllers -o jsonpath='{ .items[].status.containerStatuses[].ready }' 2> /dev/null
-    changed_when: no
-    failed_when: no
-    register: k3s_cni_calico_kube_controllers_pod_status
-    delay: 30
-    retries: 10
-    until: k3s_cni_calico_kube_controllers_pod_status.stdout == "true"
+    # Kustomize the Calico deployment (VXLAN)
+    - name: Kustomize the Calico deployment (VXLAN)
+      ansible.builtin.template:
+        src: "kustomize/calico/{{ item.src }}"
+        dest: "${HOME}/kustomize/calico/{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0640"
+      with_items:
+        - { src: "base/kustomization.yaml.j2", dest: "base/kustomization.yaml" }
+        - { src: "overlays/vxlan/configMap.yaml.j2", dest: "overlays/vxlan/configMap.yaml" }
+        - { src: "overlays/vxlan/daemonSet.yaml.j2", dest: "overlays/vxlan/daemonSet.yaml" }
+        - { src: "overlays/vxlan/kustomization.yaml.j2", dest: "overlays/vxlan/kustomization.yaml" }
+      when: k3s_cni_calico_backend == "vxlan"
+
+    - ansible.builtin.shell: |
+        ctr run \
+          --rm \
+          --mount type=bind,src=${HOME}/kustomize/calico,dst=/data,options=rbind:ro \
+          --mount type=bind,src="{{ k3s_data_dir }}/server/manifests",dst=/manifests,options=rbind:rw \
+          "{{ k3s_kustomize_image }}:{{ k3s_kustomize_tag }}" kustomize \
+          ./kustomize build /data/overlays/vxlan -o /manifests/calico.yaml
+      changed_when: false
+      when: k3s_cni_calico_backend == "vxlan"
+
+    # Wait for the Calico kube-controllers pod
+    - name: Wait for the Calico kube-controllers pod
+      ansible.builtin.shell: kubectl get pod -A -l k8s-app=calico-kube-controllers -o jsonpath='{ .items[].status.containerStatuses[].ready }' 2> /dev/null
+      changed_when: false
+      failed_when: false
+      register: k3s_cni_calico_kube_controllers_pod_status
+      delay: 30
+      retries: 10
+      until: k3s_cni_calico_kube_controllers_pod_status.stdout == "true"
 
   when:
     - "'k3s_server' in group_names"

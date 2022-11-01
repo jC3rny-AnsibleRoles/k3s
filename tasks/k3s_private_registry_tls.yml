@@ -2,7 +2,7 @@
 # [ k3s - tasks/k3s_private_registry_tls.yml ]
 
 - name: "Check tls files for {{ k3s_private_registry_config.key }}"
-  copy:
+  ansible.builtin.copy:
     dest: "
           {%- if item.key == 'ca_file_content' %}{{ k3s_private_registry_tls.path }}/{{ k3s_private_registry_config.key | regex_replace('-|\\.|:', '_') }}__ca.crt{% endif -%}
           {%- if item.key == 'cert_file_content' %}{{ k3s_private_registry_tls.path }}/{{ k3s_private_registry_config.key | regex_replace('-|\\.|:', '_') }}__cert.crt{% endif -%}
@@ -10,5 +10,5 @@
           "
     content: "{{ item.value }}"
     mode: 0640
-  no_log: yes
+  no_log: true
   with_items: "{{ k3s_private_registry_config.value.tls | dict2items | rejectattr('key', 'eq', 'insecure_skip_verify') }}"
