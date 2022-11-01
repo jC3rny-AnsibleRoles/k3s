@@ -80,7 +80,9 @@
       group: root
       mode: 0755
     notify: Restart k3s service
-    when: ansible_facts.architecture == "x86_64"
+    when:
+      - not ansible_check_mode
+      - ansible_facts.architecture == "x86_64"
   
   # Create directory for db snapshots
   - name: Create directory for db snapshots
@@ -154,9 +156,9 @@
   include_tasks:
     file: "roles/{{ role_name }}/tasks/k3s_token.yml"
     apply:
-      delegate_to: "{{ groups['k3s_server'][0] }}"
+      delegate_to: "{{ ansible_play_hosts[0] }}"
       tags: always
-  when: hostvars[groups['k3s_server'][0]].inventory_hostname_short != inventory_hostname_short
+  when: ansible_play_hosts[0] != inventory_hostname
   tags: [ install-k3s, get-k3s_token ]
 
 
