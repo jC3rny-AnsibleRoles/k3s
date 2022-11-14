@@ -59,11 +59,10 @@
         mode: "0600"
       register: k3s_vip_static_pod_manifest
 
-    - ansible.builtin.shell: "grep -A1 'KEEPALIVED_PASSWORD' {{ k3s_vip_static_pod_manifest.dest }} | grep -oP '(?<=\").*(?=\")'"
+    - ansible.builtin.shell: "grep -A1 'KEEPALIVED_PASSWORD' {{ k3s_vip_static_pod_manifest_file.stat.path }} | grep -oP '(?<=\").*(?=\")'"
       changed_when: false
       register: k3s_vip_auth_pass
       check_mode: false
-      when: ansible_play_hosts[0] == inventory_hostname
 
     # Reload k3s-vip static pod configuration
     - name: Reload k3s-vip static pod configuration
