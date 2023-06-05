@@ -70,6 +70,12 @@ ExecStart={{ k3s_install_bin_dir }}/k3s \
         '--data-dir' '{{ k3s_data_dir }}' \
 {% endif %}
 {% for key, value in k3s_additional_options.items() %}
+{% if value | type_debug == "list" %}
+{% for flag in value %}
+        '--{{ key }}' {{ "'" + (flag | string) + "' \\" }}
+{% endfor %}
+{% else %}
         '--{{ key }}' {{ (value != "" and value is not none) | ternary("'" + (value | string) + "' \\", "\\", "\\") }}
+{% endif %}
 {% endfor %}
 
