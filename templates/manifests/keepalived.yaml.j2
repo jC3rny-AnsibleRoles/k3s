@@ -31,7 +31,7 @@ spec:
         - name: KEEPALIVED_PRIORITY
           value: "{{ (ansible_play_hosts | length - ansible_play_hosts.index(inventory_hostname)) * ((k3s_service_cidr.split('.')[2] | int * 1.25) | int) // (ansible_play_hosts | length) }}"
         - name: KEEPALIVED_UNICAST_PEERS
-          value: "#PYTHON2BASH:['{% for host in (ansible_play_hosts | difference(inventory_hostname)) %}
+          value: "#PYTHON2BASH:['{% for host in (ansible_play_hosts | difference([inventory_hostname]) | sort) %}
 {{ hostvars[host].ansible_default_ipv4.address }}
 {%- if not loop.last %}','{% endif %}
 {% endfor %}']"
