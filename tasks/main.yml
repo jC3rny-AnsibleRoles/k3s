@@ -90,7 +90,7 @@
       ansible.builtin.file:
         path: "{{ k3s_additional_options['etcd-snapshot-dir'] }}"
         state: directory
-        recurse: true
+        recurse: false
         owner: "root"
         group: "root"
         mode: 0750
@@ -105,7 +105,7 @@
       ansible.builtin.file:
         path: "/etc/rancher/k3s/tls"
         state: directory
-        recurse: true
+        recurse: false
         owner: "root"
         group: "root"
         mode: 0755
