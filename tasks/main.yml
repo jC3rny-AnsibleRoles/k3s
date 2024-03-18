@@ -18,7 +18,7 @@
 - name: Stop all of the K3s containers and reset the containerd state
   ansible.builtin.command: "{{ k3s_install_bin_dir }}/k3s-killall.sh"
   changed_when: false
-  tags: [ never, upgrade-k3s, stop-k3s, reset-k3s ]
+  tags: [ never, stop-k3s, reset-k3s ]
 
 
 # Remove service files, binaries and data
@@ -97,6 +97,17 @@
       when: k3s_additional_options['etcd-snapshot-dir'] is defined
 
   tags: [ install-k3s, upgrade-k3s ]
+
+
+# Waiting for K3S post-upgrade check
+- block:
+    - ansible.builtin.meta: flush_handlers
+
+    - name: "Waiting for K3S {{ k3s_install_version }} post-upgrade check"
+      ansible.builtin.pause:
+        prompt: Press return to continue. Press Ctrl+c and then "a" to abort
+
+  tags: [ never, upgrade-k3s ]
 
 
 # Set K3S private registry
@@ -246,14 +257,14 @@
 
 
 # Notify handlers
-- name: falsetify handler - daemon-reload
+- name: Notify handler - daemon-reload
   ansible.builtin.debug:
     msg: Notify handler
   notify: daemon-reload
   changed_when: true
   tags: [ never, notify-handler_daemon_reload, notify-handlers_role_k3s, notify-handlers_all  ]
 
-- name: falsetify handler - Restart k3s service
+- name: Notify handler - Restart k3s service
   ansible.builtin.debug:
     msg: Notify handler
   notify: Restart k3s service
